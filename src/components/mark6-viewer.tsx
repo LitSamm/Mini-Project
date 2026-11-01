@@ -66,13 +66,8 @@ export default function Mark6Viewer() {
   const [autoRotate, setAutoRotate] = useState(false);
 
   useEffect(() => {
-    if (!stageRef.current) return;
-
-    const getStage = () => {
-      const element = stageRef.current;
-      if (!element) throw new Error("The Mark 6 viewer is no longer mounted.");
-      return element;
-    };
+    const initialStage = stageRef.current;
+    if (!initialStage) return;
 
     let cancelled = false;
     let requested = false;
@@ -114,7 +109,13 @@ export default function Mark6Viewer() {
         renderer.toneMappingExposure = 1.2;
         renderer.domElement.className = "mark6-canvas";
         renderer.domElement.setAttribute("aria-hidden", "true");
-        getStage().appendChild(renderer.domElement);
+        const stage = stageRef.current;
+        if (cancelled || !stage) {
+          renderer.dispose();
+          renderer = null;
+          return;
+        }
+        stage.appendChild(renderer.domElement);
 
         activeScene.add(new THREE.HemisphereLight(0xe4f7ed, 0x101713, 2.1));
 
@@ -166,7 +167,9 @@ export default function Mark6Viewer() {
         controls.autoRotate = false;
 
         const resize = () => {
-          const stage = getStage();
+          if (cancelled) return;
+          const stage = stageRef.current;
+          if (!stage) return;
           const { width, height } = stage.getBoundingClientRect();
           if (width <= 0 || height <= 0 || !renderer) return;
 
@@ -198,7 +201,7 @@ export default function Mark6Viewer() {
         };
 
         resizeObserver = new ResizeObserver(resize);
-        resizeObserver.observe(getStage());
+        resizeObserver.observe(stage);
         resize();
 
         const render = () => {
@@ -299,6 +302,7 @@ export default function Mark6Viewer() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
+        if (cancelled) return;
         inViewport = entry.isIntersecting;
         if (inViewport) {
           void initializeViewer();
@@ -309,7 +313,7 @@ export default function Mark6Viewer() {
       },
       { rootMargin: "180px 0px", threshold: 0 },
     );
-    observer.observe(getStage());
+    observer.observe(initialStage);
 
     return () => {
       cancelled = true;

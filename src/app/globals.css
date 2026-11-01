@@ -224,7 +224,7 @@ a:focus-visible {
 .hero {
   position: relative;
   display: flex;
-  min-height: min(720px, calc(100svh - 82px));
+  min-height: max(560px, calc(100svh - 84px));
   align-items: center;
   overflow: hidden;
   background-color: #111512;
