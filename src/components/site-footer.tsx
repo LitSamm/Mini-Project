@@ -80,6 +80,7 @@ export default function SiteFooter() {
           <Link href="/#track-record">Track Record</Link>
           <Link href="/journey/giias-2027">GIIAS 2027</Link>
           <Link href="/merchandise">Official Merch Store</Link>
+          <Link href="/admin/login">Admin</Link>
         </nav>
 
         <section className="footer-column">

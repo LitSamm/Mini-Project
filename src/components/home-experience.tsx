@@ -9,7 +9,11 @@ import Mark6Viewer from "@/components/mark6-viewer";
 import SiteFooter from "@/components/site-footer";
 import SiteHeader from "@/components/site-header";
 import { journeys } from "@/lib/journeys";
-import { products } from "@/lib/merchandise";
+import type { Product } from "@/lib/merchandise";
+
+type HomeExperienceProps = {
+  products: Product[];
+};
 
 const slides = [
   {
@@ -57,7 +61,7 @@ const teamStatuses = {
 const statusNames = ["Upcoming", "On Going", "Completed"] as const;
 type TeamStatus = (typeof statusNames)[number];
 
-export default function HomeExperience() {
+export default function HomeExperience({ products }: HomeExperienceProps) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [teamStatus, setTeamStatus] = useState<TeamStatus>("Upcoming");
   const heroRef = useRef<HTMLElement>(null);
@@ -144,14 +148,13 @@ export default function HomeExperience() {
         </section>
 
         <section className="about-section section-shell" id="about">
-          <Reveal className="about-image-wrap">
+          <Reveal className="about-image-wrap about-event-poster">
             <Image
-              src="/images/anargya-giias-team.png"
-              alt="Anargya ITS team members gathered around their Formula EV at an event"
+              src="/images/giias-2027-poster.png"
+              alt="Poster GIIAS 2027: The Machine is Here, menampilkan mobil Formula EV Anargya dengan latar gedung Jakarta"
               fill
-              sizes="(max-width: 760px) 88vw, 46vw"
+              sizes="(max-width: 760px) 88vw, 40vw"
             />
-            <span className="image-label">ANARGYA ITS · FORMULA EV TEAM</span>
           </Reveal>
           <Reveal className="about-copy">
             <p className="eyebrow">ANARGYA ITS · RESEARCH TEAM</p>

@@ -1,16 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ArrowRightIcon from "@/components/arrow-right-icon";
 import Reveal from "@/components/reveal";
 import SiteFooter from "@/components/site-footer";
 import SiteHeader from "@/components/site-header";
-import { products, type Product, type ProductStatus } from "@/lib/merchandise";
+import { createOrder, type CheckoutState } from "@/app/merchandise/actions";
+import { formatPrice, isProductAvailable, type Product } from "@/lib/merchandise";
 
-const filters = ["All pieces", "Open Pre-Order", "Coming Soon", "Sold Out"] as const;
+const filters = ["Semua produk", "Tersedia", "Stok habis"] as const;
 type Filter = (typeof filters)[number];
+const initialCheckoutState: CheckoutState = {};
+
+type CartLine = {
+  key: string;
+  product: Product;
+  quantity: number;
+  variant: string | null;
+};
+
+type MerchandiseExperienceProps = {
+  products: Product[];
+  orderEnabled: boolean;
+};
 
 function ProductArtwork({ product }: { product: Product }) {
   return (
@@ -22,23 +36,29 @@ function ProductArtwork({ product }: { product: Product }) {
         fill
         sizes="(max-width: 680px) 90vw, (max-width: 900px) 45vw, 29vw"
       />
-      <span className={`product-status status-${product.status.toLowerCase().replaceAll(" ", "-")}`}>
-        {product.status}
-      </span>
     </div>
   );
 }
 
-export default function MerchandiseExperience() {
-  const [filter, setFilter] = useState<Filter>("All pieces");
+export default function MerchandiseExperience({ products, orderEnabled }: MerchandiseExperienceProps) {
+  const [filter, setFilter] = useState<Filter>("Semua produk");
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [cart, setCart] = useState<Record<string, CartLine>>({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [checkoutState, checkoutAction, isSubmitting] = useActionState(createOrder, initialCheckoutState);
 
   const visibleProducts = useMemo(
     () =>
-      products.filter((product) => filter === "All pieces" || product.status === (filter as ProductStatus)),
-    [filter],
+      products.filter((product) => (
+        filter === "Semua produk"
+        || (filter === "Tersedia" && product.status === "Available")
+        || (filter === "Stok habis" && product.status === "Sold Out")
+      )),
+    [filter, products],
   );
   const selected = products.find((product) => product.id === selectedProduct);
+  const cartItems = Object.values(cart);
+  const cartTotal = cartItems.reduce((total, item) => total + item.product.priceIdr * item.quantity, 0);
 
   return (
     <>
@@ -49,7 +69,7 @@ export default function MerchandiseExperience() {
           <Reveal className="eyebrow">ANARGYA · TEAM GOODS</Reveal>
           <Reveal className="catalog-title-row">
             <h1>Made for the<br /><em>long way around.</em></h1>
-            <p>A few things from our side of the track. Check back for updates on availability.</p>
+            <p>Produk resmi Anargya ITS. Pilih item dan checkout untuk membuat pesanan.</p>
           </Reveal>
           <div className="catalog-meta"><span>THE ANARGYA CATALOGUE</span><span>01 — 03</span></div>
         </section>
@@ -75,6 +95,12 @@ export default function MerchandiseExperience() {
             </div>
           </Reveal>
 
+          {!orderEnabled && (
+            <p className="store-setup-note" role="status">
+              Checkout belum tersambung ke database toko. Hubungi administrator untuk mengaktifkan pemesanan.
+            </p>
+          )}
+
           <div className="catalog-grid">
             {visibleProducts.map((product, index) => (
               <Reveal
@@ -87,19 +113,44 @@ export default function MerchandiseExperience() {
                   <div className="catalog-product-info">
                     <div className="catalog-product-topline">
                       <span>{product.category} · 0{index + 1}</span>
-                      <span className={`availability-dot availability-${product.status.toLowerCase().replaceAll(" ", "-")}`} />
+                      <span className={`catalog-card-status ${product.status === "Available" ? "is-available" : "is-sold-out"}`}>
+                        {product.stock === 0 ? "Stok habis" : product.status === "Available" ? "Tersedia" : "Stok habis"}
+                      </span>
                     </div>
                     <h2>{product.name}</h2>
                     <p>{product.description}</p>
+                    <p className="catalog-product-price">{formatPrice(product.priceIdr)}</p>
+                    {product.variantOptions.length > 0 && (
+                      <fieldset className="catalog-variant-select">
+                        <legend>Pilih ukuran</legend>
+                        <div className="catalog-size-options">
+                          {product.variantOptions.map((variant) => (
+                            <button
+                              aria-pressed={selectedVariants[product.id] === variant}
+                              className={selectedVariants[product.id] === variant ? "catalog-size-option is-selected" : "catalog-size-option"}
+                              disabled={!isProductAvailable(product)}
+                              key={variant}
+                              onClick={() => setSelectedVariants((current) => ({
+                                ...current,
+                                [product.id]: variant,
+                              }))}
+                              type="button"
+                            >
+                              {variant}
+                            </button>
+                          ))}
+                        </div>
+                      </fieldset>
+                    )}
                     <div className="catalog-product-bottom">
-                      <span className="catalog-status-text">{product.status}</span>
                       <button
                         type="button"
                         className="product-detail-button"
+                        aria-label={`${selectedProduct === product.id ? "Tutup detail" : "Lihat detail"} ${product.name}`}
                         aria-expanded={selectedProduct === product.id}
                         onClick={() => setSelectedProduct(selectedProduct === product.id ? null : product.id)}
                       >
-                        {selectedProduct === product.id ? "Close details" : "View details"}
+                        {selectedProduct === product.id ? "Tutup detail" : "Lihat detail"}
                         {selectedProduct === product.id ? (
                           <span aria-hidden="true">−</span>
                         ) : (
@@ -107,6 +158,37 @@ export default function MerchandiseExperience() {
                         )}
                       </button>
                     </div>
+                    <button
+                      className="catalog-add-button"
+                      disabled={!orderEnabled
+                        || !isProductAvailable(product)
+                        || (product.variantOptions.length > 0 && !selectedVariants[product.id])}
+                      onClick={() => setCart((current) => {
+                        const variant = selectedVariants[product.id] || null;
+                        const key = `${product.id}::${variant ?? ""}`;
+                        const previous = current[key];
+                        return {
+                          ...current,
+                          [key]: {
+                            key,
+                            product,
+                            variant,
+                            quantity: Math.min(
+                              (previous?.quantity ?? 0) + 1,
+                              product.stock ?? 20,
+                              20,
+                            ),
+                          },
+                        };
+                      })}
+                      type="button"
+                    >
+                      {!isProductAvailable(product)
+                        ? product.stock === 0 ? "Stok habis" : "Belum tersedia"
+                        : (product.variantOptions.length > 0 && !selectedVariants[product.id])
+                          ? "Pilih ukuran terlebih dahulu"
+                          : "Tambah ke keranjang"}
+                    </button>
                   </div>
                 </article>
               </Reveal>
@@ -121,12 +203,105 @@ export default function MerchandiseExperience() {
                 <p>{selected.description}</p>
               </div>
               <div className="detail-availability">
-                <span>Availability</span><strong>{selected.status}</strong>
+                <span>Ketersediaan</span><strong>{selected.status === "Available" ? "Tersedia" : "Stok habis"}</strong>
               </div>
               <p className="catalog-note">
-                Ordering details will be shared by the Anargya team when this item is available.
+                Harga, stok, dan status terbaru ditampilkan pada katalog. Instruksi pembayaran dan pengiriman dikonfirmasi melalui email.
               </p>
             </Reveal>
+          )}
+
+          {checkoutState.order ? (
+            <section className="store-checkout store-order-confirmation" aria-live="polite">
+              <p className="eyebrow">PESANAN DITERIMA</p>
+              <h2>Terima kasih sudah berbelanja.</h2>
+              <p>Nomor pesanan <strong>{checkoutState.order.reference.slice(0, 8).toUpperCase()}</strong></p>
+              <p>Total pesanan: <strong>{formatPrice(checkoutState.order.totalIdr)}</strong></p>
+              <p>Simpan nomor pesanan ini. Untuk konfirmasi pembayaran dan pengiriman, hubungi tim Anargya melalui email dan sertakan nomor pesanan.</p>
+              <a href={`mailto:contact@anargyaits.com?subject=${encodeURIComponent(`Pesanan merchandise ${checkoutState.order.reference.slice(0, 8).toUpperCase()}`)}`}>
+                Hubungi tim merchandise melalui email
+              </a>
+            </section>
+          ) : cartItems.length > 0 && (
+            <section className="store-checkout" aria-labelledby="checkout-heading">
+              <div className="store-checkout-heading">
+                <p className="eyebrow">YOUR ORDER</p>
+                <h2 id="checkout-heading">Keranjang &amp; checkout</h2>
+                <p>Setelah pesanan tercatat, simpan nomor pesanan. Hubungi tim Anargya melalui email untuk instruksi pembayaran dan konfirmasi pengiriman.</p>
+              </div>
+              <ul className="store-cart-list">
+                {cartItems.map(({ key, product, quantity, variant }) => (
+                  <li className="store-cart-item" key={key}>
+                    <div>
+                      <strong>{product.name}</strong>
+                      {variant && <span>Ukuran: {variant}</span>}
+                      <span>{formatPrice(product.priceIdr)}</span>
+                    </div>
+                    <label>
+                      Jumlah
+                      <input
+                        aria-label={`Jumlah ${product.name}${variant ? ` ukuran ${variant}` : ""}`}
+                        max={Math.min(product.stock ?? 20, 20)}
+                        min="0"
+                        onChange={(event) => {
+                          const quantity = Number(event.target.value);
+                          setCart((current) => {
+                            const next = { ...current };
+                            if (quantity > 0) {
+                              next[key] = { ...current[key], quantity };
+                            } else {
+                              delete next[key];
+                            }
+                            return next;
+                          });
+                        }}
+                        type="number"
+                        value={quantity}
+                      />
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <p className="store-cart-total">
+                <span>Subtotal produk</span>
+                <strong>{formatPrice(cartTotal)}</strong>
+              </p>
+              <p className="store-shipping-note">Biaya pengiriman dihitung dan dikonfirmasi melalui email.</p>
+              <form action={checkoutAction} className="store-checkout-form">
+                <input name="items" type="hidden" value={JSON.stringify(cartItems.map((product) => ({
+                  id: product.product.id,
+                  quantity: product.quantity,
+                  variant: product.variant,
+                })))} />
+                <label>
+                  Nama lengkap
+                  <input autoComplete="name" maxLength={100} name="customer_name" required />
+                </label>
+                <label>
+                  Email untuk konfirmasi
+                  <input autoComplete="email" maxLength={254} name="customer_email" required type="email" />
+                </label>
+                <label>
+                  Nomor telepon (opsional)
+                  <input autoComplete="tel" maxLength={30} name="customer_phone" type="tel" />
+                </label>
+                <label className="store-address-field">
+                  Alamat pengiriman
+                  <textarea autoComplete="street-address" maxLength={500} name="delivery_address" required rows={3} />
+                </label>
+                <label className="store-address-field">
+                  Catatan (opsional)
+                  <textarea maxLength={500} name="notes" rows={2} />
+                </label>
+                {checkoutState.error && <p className="admin-form-error store-checkout-error" role="alert">{checkoutState.error}</p>}
+                <button className="catalog-add-button store-submit-button" disabled={isSubmitting || !orderEnabled} type="submit">
+                  {isSubmitting ? "Menyimpan pesanan..." : "Buat pesanan"}
+                </button>
+                <p className="store-privacy-note">
+                  Data kontak dan alamat hanya digunakan untuk memproses pesanan ini.
+                </p>
+              </form>
+            </section>
           )}
         </section>
 

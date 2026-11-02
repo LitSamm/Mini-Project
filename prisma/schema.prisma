@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Product {
+  id             String      @id
+  name           String
+  category       String
+  status         String
+  description    String
+  image          String
+  imageAlt       String      @map("image_alt")
+  priceIdr       BigInt      @map("price_idr")
+  stock          Int?
+  variantOptions String[]    @default([]) @map("variant_options")
+  sortOrder      Int         @default(0) @map("sort_order")
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  orderItems     OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerName    String      @map("customer_name")
+  customerEmail   String      @default("") @map("customer_email")
+  customerPhone   String?     @map("customer_phone")
+  deliveryAddress String      @map("delivery_address")
+  notes           String      @default("")
+  totalIdr        BigInt      @map("total_idr")
+  status          String      @default("Awaiting Payment")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  items           OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id           BigInt  @id @default(autoincrement())
+  orderId      String  @map("order_id") @db.Uuid
+  productId    String  @map("product_id")
+  productName  String  @map("product_name")
+  quantity     Int
+  unitPriceIdr BigInt  @map("unit_price_idr")
+  variant      String?
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}

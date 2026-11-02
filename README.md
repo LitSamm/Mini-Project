@@ -9,7 +9,8 @@ Official website showcase for the Anargya ITS Formula EV research team. The site
 - Responsive homepage with event highlights and team introduction.
 - Interactive Mark 06 viewer with 360-degree rotation, zoom, auto-rotate, and reset controls.
 - Team updates for upcoming, ongoing, and completed activities.
-- Filterable merchandise catalogue with product availability.
+- Filterable merchandise catalogue, inventory-aware cart, and fixed-price order checkout.
+- Supabase-authenticated admin with Prisma-powered product and order management.
 - Event and team-story pages.
 - Scroll-based reveals and subtle motion that respect reduced-motion preferences.
 - Mobile navigation and layouts.
@@ -19,7 +20,9 @@ Official website showcase for the Anargya ITS Formula EV research team. The site
 | Route | Description |
 | --- | --- |
 | `/` | Team introduction, GIIAS 2027, Mark 06, team updates, merchandise preview, and track record. |
-| `/merchandise` | Merchandise catalogue with category filters and availability information. |
+| `/merchandise` | Live merchandise catalogue, stock and pricing, cart, and checkout. |
+| `/admin/login` | Protected admin sign-in for the merchandise store. |
+| `/admin` | Admin dashboard for products, inventory, and order fulfillment. |
 | `/journey/giias-2027` | Information about the team's upcoming GIIAS 2027 journey. |
 | `/journey/inside-the-workshop` | A look at the people and work behind the car. |
 | `/journey/electric-by-design` | The team's electric motorsport and engineering story. |
@@ -29,6 +32,8 @@ Official website showcase for the Anargya ITS Formula EV research team. The site
 - [Next.js](https://nextjs.org/) 16 with the App Router
 - [React](https://react.dev/) 19 and TypeScript
 - [Three.js](https://threejs.org/) for the Mark 06 3D viewer
+- [Supabase](https://supabase.com/) for the store database and admin authentication
+- [Prisma ORM](https://www.prisma.io/orm) for server-side PostgreSQL queries
 - CSS and [Tailwind CSS](https://tailwindcss.com/)
 
 ## Requirements
@@ -68,21 +73,49 @@ Official website showcase for the Anargya ITS Formula EV research team. The site
 | `npm run build` | Create an optimized production build. |
 | `npm run start` | Serve the production build locally. Run `npm run build` first. |
 
+Journey content is maintained in `src/lib/journeys.ts`; the merchandise catalogue is seeded by `supabase/schema.sql` and managed in the admin dashboard.
+
+The Mark 06 viewer loads its FBX model and textures from `public/models/mark-6/`. It is loaded when the viewer approaches the viewport to reduce the initial page workload. Drag the model to rotate, scroll to zoom, or use the on-screen controls to auto-rotate and reset the view.
+
 ## Project structure
 
 ```text
 src/
   app/                 App Router pages and global styles
   components/          Site sections, navigation, footer, and 3D viewer
-  lib/                 Journey and merchandise content
+  lib/                 Journey, product, and Supabase helpers
+  proxy.ts             Refreshes sessions and protects admin routes
+supabase/
+  schema.sql           Store tables, order RPC, RLS, and initial products
 public/
   images/              Site photography, logos, and merchandise images
   models/mark-6/       Mark 06 FBX model and textures
 ```
 
-Journey content is maintained in `src/lib/journeys.ts`; merchandise items and availability are maintained in `src/lib/merchandise.ts`.
+## Merchandise store and admin
 
-The Mark 06 viewer loads its FBX model and textures from `public/models/mark-6/`. It is loaded when the viewer approaches the viewport to reduce the initial page workload. Drag the model to rotate, scroll to zoom, or use the on-screen controls to auto-rotate and reset the view.
+Supabase provides PostgreSQL and admin authentication. Prisma runs trusted server-side catalogue and admin queries. The checkout and stock reservation remain in the Supabase `create_order` database function so order creation stays atomic. Customers can submit fixed-price orders with their contact and delivery details; payment and shipping are confirmed manually by email, with no online payment gateway.
+
+1. Create a Supabase project. In **SQL Editor**, run [`supabase/schema.sql`](./supabase/schema.sql). It creates the products/orders tables, RLS policies, checkout/status functions, and seed products at Rp90.000, Rp100.000, and Rp15.000.
+2. In Supabase **Project Settings → API**, copy the project URL and anon key. Keep the service-role key server-only.
+3. In **Project Settings → Database → Connect**, copy the Transaction Pooler URI for `DATABASE_URL` (port `6543`, adding `?pgbouncer=true`) and the direct database URI for `DIRECT_URL`. If direct connections are unavailable on your network, use the Session Pooler URI on port `5432` for `DIRECT_URL`. Replace the placeholders in each URI and URL-encode special characters in the database password.
+4. Copy `.env.example` to `.env` and fill in the Supabase URL, anon key, server-only service-role key, `SUPABASE_ADMIN_EMAILS`, `DATABASE_URL`, and `DIRECT_URL`. Never expose any server credential with a `NEXT_PUBLIC_` prefix or commit `.env`.
+5. Install dependencies and generate/check Prisma Client:
+
+   ```bash
+   npm install
+   npm run db:generate
+   npm run db:validate
+   ```
+
+6. Create the administrator account under Supabase **Authentication → Users**. Add the account email to `SUPABASE_ADMIN_EMAILS`, then start the app with `npm run dev` and sign in at `/admin/login`.
+7. Manage products, sizes, stock, and orders at `/admin`. Tee sizes are S, M, L, and XL. Orders start as `Awaiting Payment`; cancellation restores reserved stock.
+
+Prisma models are in `prisma/schema.prisma`; `npm run db:studio` opens a local database browser. The SQL file remains the source of truth for schema setup, seed data, RLS, and database functions. Keep the Prisma schema in sync when changing tables, and do not run `prisma db push` or `prisma migrate` against this project: those commands do not manage the SQL functions and policies in `supabase/schema.sql`.
+
+The protected `/admin` dashboard verifies the signed-in Supabase user against the admin email allowlist before running privileged Prisma queries or order actions. Database URLs, the service-role key, and customer/order data stay on the server. Prices must be between IDR 1 and IDR 1,000,000,000,000; stock must be between 0 and 1,000,000, or left blank for unlimited inventory.
+
+The GIIAS 2027 page describes the event context and Anargya's planned showcase. Dates, venue, booth, and participation are explicitly marked as pending until confirmed; update `src/lib/journeys.ts` with verified details before publishing them.
 
 ## Author
 

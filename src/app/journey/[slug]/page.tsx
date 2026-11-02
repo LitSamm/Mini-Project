@@ -86,14 +86,27 @@ async function JourneyContent({ params }: JourneyPageProps) {
           </Reveal>
           <Reveal className="journey-body">
             {journey.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-            {journey.slug === "giias-2027" && (
-              <p className="event-note">Event details will be added as they are confirmed.</p>
-            )}
             <Link className="text-link" href="/#track-record">
               Explore more stories
             </Link>
           </Reveal>
         </section>
+
+        {journey.facts && (
+          <section className="event-facts section-shell" aria-label="GIIAS 2027 information">
+            <p className="eyebrow">EVENT INFORMATION</p>
+            <h2>What to <em>expect.</em></h2>
+            <dl>
+              {journey.facts.map((fact) => (
+                <div key={fact.label}>
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p>Information will be updated after confirmation from the organizer and Anargya team.</p>
+          </section>
+        )}
 
         <section className="journey-next">
           <Reveal>

@@ -7,6 +7,7 @@ export type Journey = {
   image: string;
   imageAlt: string;
   body: string[];
+  facts?: { label: string; value: string }[];
 };
 
 export const journeys: Journey[] = [
@@ -16,12 +17,19 @@ export const journeys: Journey[] = [
     eyebrow: "UPCOMING EVENT · GIIAS 2027",
     status: "Upcoming",
     description:
-      "A new chapter for Anargya ITS Formula EV Team. Meet the people and engineering behind our next challenge.",
+      "GIIAS is an Indonesian automotive exhibition. Anargya plans to use the 2027 edition to introduce its student-built Formula EV and engineering work to a wider audience.",
     image: "/images/hero-giias.webp",
     imageAlt: "Anargya's electric formula car, ready for its next event",
     body: [
-      "GIIAS 2027 is the next event on Anargya's horizon. It is an opportunity to bring the team's work in electric motorsport closer to a wider community.",
-      "The event overview, programme, and visitor information will be shared here as details are confirmed.",
+      "The Gaikindo Indonesia International Auto Show (GIIAS) is an automotive exhibition where the industry presents vehicles, technology, and mobility innovations to the public.",
+      "For Anargya ITS Formula EV Team, GIIAS 2027 is a planned opportunity to introduce the student-built electric race car, explain the engineering behind it, and connect with the automotive community. The team's participation and programme remain subject to official confirmation.",
+      "Dates, venue details, booth location, programme, and visitor information will be published here once confirmed by the event organizer and the team.",
+    ],
+    facts: [
+      { label: "Event", value: "Gaikindo Indonesia International Auto Show (GIIAS) 2027" },
+      { label: "Date", value: "To be announced" },
+      { label: "Venue and booth", value: "To be announced" },
+      { label: "Anargya programme", value: "Planned Formula EV showcase; participation to be confirmed" },
     ],
   },
   {
