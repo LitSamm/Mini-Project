@@ -15,6 +15,7 @@ create table if not exists public.products (
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
+  payment_reference text unique,
   customer_name text not null,
   customer_email text not null default '',
   customer_phone text,
@@ -25,6 +26,10 @@ create table if not exists public.orders (
     check (status in ('Awaiting Payment', 'Paid', 'Preparing', 'Shipped', 'Completed', 'Cancelled')),
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists payment_reference text;
+create unique index if not exists orders_payment_reference_key
+  on public.orders (payment_reference);
 
 create table if not exists public.order_items (
   id bigint generated always as identity primary key,
@@ -49,12 +54,15 @@ set status = 'Available'
 where status in ('Coming Soon', 'Open Pre-Order', 'Sold Out');
 update public.products
 set price_idr = case id
-  when 'team-tee' then 90000
-  when 'team-tumbler' then 100000
-  when 'sticker-pack' then 15000
+  when 'team-tee' then 155000
+  when 'team-tumbler' then 15000
+  when 'sticker-pack' then 10000
+  when 'carabiner-car' then 60000
+  when 'enamel-pin' then 25000
   else price_idr
 end
-where id in ('team-tee', 'team-tumbler', 'sticker-pack') and price_idr is null;
+where id in ('team-tee', 'team-tumbler', 'sticker-pack', 'carabiner-car', 'enamel-pin')
+  and price_idr is null;
 alter table public.products alter column price_idr set not null;
 alter table public.products add constraint products_status_check
   check (status in ('Available', 'Sold Out'));
@@ -96,31 +104,50 @@ grant select, insert, update, delete on public.products, public.orders, public.o
 grant usage, select on sequence public.order_items_id_seq to service_role;
 
 insert into public.products (
-  id, name, category, status, description, image, image_alt, price_idr, stock, sort_order
+  id, name, category, status, description, image, image_alt, price_idr, stock, variant_options, sort_order
 ) values
   (
-    'team-tee', 'Blueprint Tee', 'Apparel', 'Available',
-    'A team tee featuring the engineering behind Anargya''s Formula EV.',
-    '/images/blueprint-tee.webp', 'Anargya Blueprint Tee shown in light and dark colorways',
-    90000, null, 1
+    'team-tee', 'Workshirt', 'Apparel', 'Available',
+    'Workshirt resmi Anargya ITS EV Team dengan desain Mark 6.0.',
+    '/images/workshirt.png', 'Workshirt hitam Anargya ITS EV Team tampak depan dan belakang',
+    155000, 40, '{}', 1
   ),
   (
-    'team-tumbler', 'Anargya Tumbler', 'Drinkware', 'Available',
-    'A reusable tumbler featuring the team mark and race-day details.',
-    '/images/team-tumbler.webp', 'Anargya team tumbler with race flags and a Formula EV illustration',
-    100000, null, 2
+    'team-tumbler', 'Blindpack keychain', 'Accessories', 'Available',
+    'Gantungan kunci blindpack bertema mobil Formula EV Anargya.',
+    '/images/keychain-mobill.png', 'Koleksi blindpack keychain Anargya ITS dengan beberapa desain dan kemasan warna-warni',
+    15000, 100, '{}', 2
   ),
   (
-    'sticker-pack', 'Anargya Sticker Pack', 'Accessories', 'Available',
-    'A collection of Anargya-themed stickers for workshop and race-day kit.',
-    '/images/sticker-pack.webp', 'Anargya sticker pack with Formula EV and team-themed designs',
-    15000, null, 3
+    'carabiner-car', 'Carabiner car', 'Accessories', 'Available',
+    'Gantungan carabiner mobil Formula EV Anargya.',
+    '/images/carabiner.png', 'Carabiner hijau Anargya dengan gantungan mobil mini dan manik nama tim',
+    60000, 10, '{}', 3
+  ),
+  (
+    'sticker-pack', 'Sticker', 'Accessories', 'Available',
+    'Koleksi stiker Anargya ITS EV Team bertema mobil dan balap.',
+    '/images/sticker.png', 'Lembar stiker Anargya ITS EV Team dengan desain mobil dan tim balap',
+    10000, 110, '{}', 4
+  ),
+  (
+    'enamel-pin', 'Enamel pin', 'Accessories', 'Available',
+    'Pin enamel Anargya ITS EV Team dengan beberapa desain tim.',
+    '/images/enamel-pin.png', 'Tiga pin enamel Anargya ITS EV Team dengan kartu desain berwarna',
+    25000, 55, '{}', 5
   )
-on conflict (id) do nothing;
-
-update public.products
-set variant_options = array['S', 'M', 'L', 'XL']
-where id = 'team-tee' and cardinality(variant_options) = 0;
+on conflict (id) do update set
+  name = excluded.name,
+  category = excluded.category,
+  status = excluded.status,
+  description = excluded.description,
+  image = excluded.image,
+  image_alt = excluded.image_alt,
+  price_idr = excluded.price_idr,
+  stock = excluded.stock,
+  variant_options = excluded.variant_options,
+  sort_order = excluded.sort_order,
+  updated_at = now();
 
 drop function if exists public.create_order(text, text, text, text, jsonb);
 drop function if exists public.create_order(text, text, text, text, text, jsonb);
@@ -141,6 +168,7 @@ declare
   v_item jsonb;
   v_product public.products%rowtype;
   v_order_id uuid;
+  v_payment_reference text;
   v_quantity integer;
   v_product_quantity integer;
   v_total bigint := 0;
@@ -220,9 +248,17 @@ begin
     v_count := v_count + 1;
   end loop;
 
+  loop
+    v_payment_reference := 'AN' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 28));
+    exit when not exists (
+      select 1 from public.orders where payment_reference = v_payment_reference
+    );
+  end loop;
+
   insert into public.orders (
-    customer_name, customer_email, customer_phone, delivery_address, notes, total_idr, status
+    payment_reference, customer_name, customer_email, customer_phone, delivery_address, notes, total_idr, status
   ) values (
+    v_payment_reference,
     trim(p_customer_name),
     lower(trim(p_customer_email)),
     trim(p_customer_phone),
@@ -258,9 +294,64 @@ begin
 
   return jsonb_build_object(
     'order_id', v_order_id,
+    'payment_reference', v_payment_reference,
     'total_idr', v_total,
     'item_count', v_count
   );
+end;
+$$;
+
+create or replace function public.apply_midtrans_payment_event(
+  p_order_id uuid,
+  p_event text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_order public.orders%rowtype;
+  v_item record;
+begin
+  if p_event not in ('Paid', 'Cancelled') then
+    raise exception 'The Midtrans payment event is invalid.';
+  end if;
+
+  select * into v_order
+  from public.orders
+  where id = p_order_id
+  for update;
+
+  if not found then
+    raise exception 'The requested order could not be found.';
+  end if;
+
+  if p_event = 'Paid' then
+    if v_order.status = 'Awaiting Payment' then
+      update public.orders set status = 'Paid' where id = p_order_id;
+    elsif v_order.status = 'Cancelled' then
+      raise exception 'Midtrans reported payment for a cancelled order.';
+    end if;
+    return;
+  end if;
+
+  if v_order.status <> 'Awaiting Payment' then
+    return;
+  end if;
+
+  for v_item in
+    select product_id, quantity
+    from public.order_items
+    where order_id = p_order_id
+    order by product_id
+  loop
+    update public.products
+    set stock = stock + v_item.quantity, updated_at = now()
+    where id = v_item.product_id and stock is not null;
+  end loop;
+
+  update public.orders set status = 'Cancelled' where id = p_order_id;
 end;
 $$;
 
@@ -333,3 +424,6 @@ revoke all on function public.create_order(text, text, text, text, text, jsonb) 
 grant execute on function public.create_order(text, text, text, text, text, jsonb) to service_role;
 revoke all on function public.update_order_status(uuid, text) from public, anon, authenticated;
 grant execute on function public.update_order_status(uuid, text) to service_role;
+drop function if exists public.apply_doku_payment_event(uuid, text);
+revoke all on function public.apply_midtrans_payment_event(uuid, text) from public, anon, authenticated;
+grant execute on function public.apply_midtrans_payment_event(uuid, text) to service_role;

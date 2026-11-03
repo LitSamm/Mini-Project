@@ -6,8 +6,12 @@ export function hasSupabaseAuthConfig() {
 }
 
 export function hasSupabaseAdminConfig() {
+  return hasSupabaseAuthConfig() && hasSupabaseServiceConfig();
+}
+
+export function hasSupabaseServiceConfig() {
   return Boolean(
-    hasSupabaseAuthConfig()
+    process.env.NEXT_PUBLIC_SUPABASE_URL
     && process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 }
@@ -18,6 +22,10 @@ export function hasStoreDatabaseConfig() {
 
 export function hasMerchandiseStoreConfig() {
   return hasSupabaseAdminConfig() && hasStoreDatabaseConfig();
+}
+
+export function hasMerchandiseCheckoutConfig() {
+  return hasSupabaseServiceConfig();
 }
 
 export function getAdminEmails() {

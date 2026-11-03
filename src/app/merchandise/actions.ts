@@ -1,13 +1,22 @@
 "use server";
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { hasMerchandiseStoreConfig } from "@/lib/supabase/config";
+import { hasMerchandiseCheckoutConfig } from "@/lib/supabase/config";
+import {
+  createMidtransCheckoutPayment,
+  hasMidtransCheckoutConfig,
+  MidtransPaymentRequestError,
+} from "@/lib/midtrans";
 
 export type CheckoutState = {
   error?: string;
+  pendingOrder?: {
+    reference: string;
+  };
   order?: {
     reference: string;
     totalIdr: number;
+    paymentUrl: string;
   };
 };
 
@@ -29,7 +38,7 @@ function isCartItem(value: unknown): value is CartItem {
 }
 
 export async function createOrder(_previousState: CheckoutState, formData: FormData): Promise<CheckoutState> {
-  if (!hasMerchandiseStoreConfig()) {
+  if (!hasMerchandiseCheckoutConfig() || !hasMidtransCheckoutConfig()) {
     return { error: "Checkout belum tersedia. Silakan coba beberapa saat lagi." };
   }
 
@@ -90,18 +99,57 @@ export async function createOrder(_previousState: CheckoutState, formData: FormD
     throw new Error(`Could not create order: ${error.message}`);
   }
 
-  if (typeof result !== "object" || result === null || !("order_id" in result) || !("total_idr" in result)) {
+  if (typeof result !== "object" || result === null
+    || !("order_id" in result) || !("total_idr" in result) || !("payment_reference" in result)) {
     throw new Error("The order service returned an invalid response.");
   }
 
-  if (typeof result.order_id !== "string" || typeof result.total_idr !== "number") {
+  if (typeof result.order_id !== "string" || typeof result.total_idr !== "number"
+    || typeof result.payment_reference !== "string") {
     throw new Error("The order service returned invalid order details.");
+  }
+
+  let paymentUrl: string;
+  try {
+    paymentUrl = await createMidtransCheckoutPayment({
+      amount: result.total_idr,
+      orderId: result.payment_reference,
+      customerName,
+      customerEmail,
+      customerPhone: customerPhone || null,
+    });
+  } catch (paymentError) {
+    if (paymentError instanceof MidtransPaymentRequestError && paymentError.definitelyRejected) {
+      const { error: cancelError } = await supabase.rpc("update_order_status", {
+        p_order_id: result.order_id,
+        p_status: "Cancelled",
+      });
+      if (cancelError) {
+        throw new Error(
+          `Midtrans rejected the payment request and the order could not be cancelled: ${cancelError.message}`,
+        );
+      }
+
+      return { error: "Midtrans belum dapat memulai pembayaran. Pesanan dibatalkan; silakan coba lagi." };
+    }
+
+    if (paymentError instanceof MidtransPaymentRequestError) {
+      console.error(paymentError.message);
+    } else {
+      console.error("Could not confirm whether Midtrans created the checkout session.", paymentError);
+    }
+
+    return {
+      error: "Status pembayaran belum dapat dipastikan. Jangan membuat pesanan ulang; hubungi tim Anargya dengan nomor pesanan ini.",
+      pendingOrder: { reference: result.payment_reference },
+    };
   }
 
   return {
     order: {
-      reference: result.order_id,
+      reference: result.payment_reference,
       totalIdr: result.total_idr,
+      paymentUrl,
     },
   };
 }

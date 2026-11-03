@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ArrowRightIcon from "@/components/arrow-right-icon";
@@ -47,6 +47,12 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [checkoutState, checkoutAction, isSubmitting] = useActionState(createOrder, initialCheckoutState);
 
+  useEffect(() => {
+    if (checkoutState.order?.paymentUrl) {
+      window.location.assign(checkoutState.order.paymentUrl);
+    }
+  }, [checkoutState.order]);
+
   const visibleProducts = useMemo(
     () =>
       products.filter((product) => (
@@ -65,13 +71,13 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
       <SiteHeader />
       <main className="catalog-page">
         <section className="catalog-intro section-shell">
-          <Link className="back-link" href="/#merchandise">← Back to Anargya</Link>
+          <Link className="back-link" href="/#merchandise"><span className="direction-mark" aria-hidden="true">&lt;</span>Back to Anargya</Link>
           <Reveal className="eyebrow">ANARGYA · TEAM GOODS</Reveal>
           <Reveal className="catalog-title-row">
             <h1>Made for the<br /><em>long way around.</em></h1>
             <p>Produk resmi Anargya ITS. Pilih item dan checkout untuk membuat pesanan.</p>
           </Reveal>
-          <div className="catalog-meta"><span>THE ANARGYA CATALOGUE</span><span>01 — 03</span></div>
+          <div className="catalog-meta"><span>THE ANARGYA CATALOGUE</span><span>01 — 05</span></div>
         </section>
 
         <section className="catalog-list section-shell" aria-label="Merchandise catalogue">
@@ -97,7 +103,7 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
 
           {!orderEnabled && (
             <p className="store-setup-note" role="status">
-              Checkout belum tersambung ke database toko. Hubungi administrator untuk mengaktifkan pemesanan.
+              Checkout belum dikonfigurasi di Vercel. Administrator perlu mengatur NEXT_PUBLIC_SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY, menjalankan schema toko di Supabase, lalu deploy ulang.
             </p>
           )}
 
@@ -119,7 +125,6 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
                     </div>
                     <h2>{product.name}</h2>
                     <p>{product.description}</p>
-                    <p className="catalog-product-price">{formatPrice(product.priceIdr)}</p>
                     {product.variantOptions.length > 0 && (
                       <fieldset className="catalog-variant-select">
                         <legend>Pilih ukuran</legend>
@@ -142,7 +147,8 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
                         </div>
                       </fieldset>
                     )}
-                    <div className="catalog-product-bottom">
+                    <div className="catalog-price-row">
+                      <p className="catalog-product-price">{formatPrice(product.priceIdr)}</p>
                       <button
                         type="button"
                         className="product-detail-button"
@@ -206,19 +212,27 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
                 <span>Ketersediaan</span><strong>{selected.status === "Available" ? "Tersedia" : "Stok habis"}</strong>
               </div>
               <p className="catalog-note">
-                Harga, stok, dan status terbaru ditampilkan pada katalog. Instruksi pembayaran dan pengiriman dikonfirmasi melalui email.
+                Harga dan stok terbaru ditampilkan pada katalog. Ongkos kirim gratis atau pesanan dapat diambil sendiri.
               </p>
             </Reveal>
           )}
 
           {checkoutState.order ? (
             <section className="store-checkout store-order-confirmation" aria-live="polite">
-              <p className="eyebrow">PESANAN DITERIMA</p>
-              <h2>Terima kasih sudah berbelanja.</h2>
+              <p className="eyebrow">MENGALIHKAN KE MIDTRANS</p>
+              <h2>Lanjutkan pembayaran pesanan.</h2>
               <p>Nomor pesanan <strong>{checkoutState.order.reference.slice(0, 8).toUpperCase()}</strong></p>
               <p>Total pesanan: <strong>{formatPrice(checkoutState.order.totalIdr)}</strong></p>
-              <p>Simpan nomor pesanan ini. Untuk konfirmasi pembayaran dan pengiriman, hubungi tim Anargya melalui email dan sertakan nomor pesanan.</p>
-              <a href={`mailto:contact@anargyaits.com?subject=${encodeURIComponent(`Pesanan merchandise ${checkoutState.order.reference.slice(0, 8).toUpperCase()}`)}`}>
+              <p>Jika halaman pembayaran tidak terbuka, lanjutkan melalui tautan ini.</p>
+              <a href={checkoutState.order.paymentUrl}>Buka pembayaran Midtrans</a>
+            </section>
+          ) : checkoutState.pendingOrder ? (
+            <section className="store-checkout store-order-confirmation" aria-live="polite">
+              <p className="eyebrow">PEMBAYARAN PERLU DIKONFIRMASI</p>
+              <h2>Jangan kirim pesanan ulang dulu.</h2>
+              <p>Nomor pesanan <strong>{checkoutState.pendingOrder.reference.slice(0, 8).toUpperCase()}</strong></p>
+              <p>{checkoutState.error}</p>
+              <a href={`mailto:contact@anargyaits.com?subject=${encodeURIComponent(`Pesanan merchandise ${checkoutState.pendingOrder.reference.slice(0, 8).toUpperCase()}`)}`}>
                 Hubungi tim merchandise melalui email
               </a>
             </section>
@@ -227,7 +241,7 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
               <div className="store-checkout-heading">
                 <p className="eyebrow">YOUR ORDER</p>
                 <h2 id="checkout-heading">Keranjang &amp; checkout</h2>
-                <p>Setelah pesanan tercatat, simpan nomor pesanan. Hubungi tim Anargya melalui email untuk instruksi pembayaran dan konfirmasi pengiriman.</p>
+                <p>Pembayaran diproses dengan aman melalui halaman Midtrans. Ongkos kirim gratis atau pesanan dapat diambil sendiri.</p>
               </div>
               <ul className="store-cart-list">
                 {cartItems.map(({ key, product, quantity, variant }) => (
@@ -295,7 +309,7 @@ export default function MerchandiseExperience({ products, orderEnabled }: Mercha
                 </label>
                 {checkoutState.error && <p className="admin-form-error store-checkout-error" role="alert">{checkoutState.error}</p>}
                 <button className="catalog-add-button store-submit-button" disabled={isSubmitting || !orderEnabled} type="submit">
-                  {isSubmitting ? "Menyimpan pesanan..." : "Buat pesanan"}
+                  {isSubmitting ? "Menyiapkan pembayaran..." : orderEnabled ? "Bayar dengan Midtrans" : "Pembayaran belum tersedia"}
                 </button>
                 <p className="store-privacy-note">
                   Data kontak dan alamat hanya digunakan untuk memproses pesanan ini.

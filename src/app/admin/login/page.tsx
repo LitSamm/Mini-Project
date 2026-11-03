@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
   return (
     <main className="admin-page admin-login-page">
       <section className="admin-login-card">
-        <Link className="admin-back-link" href="/">← Kembali ke Anargya</Link>
+        <Link className="admin-back-link" href="/"><span className="direction-mark" aria-hidden="true">&lt;</span>Kembali ke Anargya</Link>
         <p className="eyebrow">ANARGYA · STORE MANAGEMENT</p>
         <h1>Admin sign in</h1>
         <p className="admin-muted">Masuk untuk mengelola produk dan pesanan toko.</p>

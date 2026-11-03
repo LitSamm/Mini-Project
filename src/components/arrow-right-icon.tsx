@@ -6,13 +6,7 @@ export default function ArrowRightIcon() {
       viewBox="0 0 24 24"
       fill="none"
     >
-      <path
-        d="M4.5 12h15m-6-6 6 6-6 6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M8 3 19 12 8 21 4.5 17.5 11 12 4.5 6.5 8 3Z" fill="currentColor" />
     </svg>
   );
 }

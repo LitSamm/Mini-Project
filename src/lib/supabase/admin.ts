@@ -1,12 +1,12 @@
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
-import { hasSupabaseAdminConfig } from "@/lib/supabase/config";
+import { hasSupabaseServiceConfig } from "@/lib/supabase/config";
 
 export function createAdminSupabaseClient() {
-  if (!hasSupabaseAdminConfig()) {
+  if (!hasSupabaseServiceConfig()) {
     throw new Error(
-      "Supabase is not configured. Set the public URL, anon key, and server-only service role key.",
+      "Supabase service access is not configured. Set the project URL and server-only service role key.",
     );
   }
 

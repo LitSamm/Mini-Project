@@ -70,7 +70,7 @@ async function JourneyContent({ params }: JourneyPageProps) {
             sizes="100vw"
           />
           <div className="journey-detail-shade" />
-          <Link className="journey-back" href="/#track-record">← Back to the journey</Link>
+          <Link className="journey-back" href="/#track-record"><span className="direction-mark" aria-hidden="true">&lt;</span>Back to the journey</Link>
           <Reveal className="journey-detail-heading">
             <p className="eyebrow"><span className="live-dot" />{journey.eyebrow}</p>
             <h1>{journey.slug === "giias-2027" ? <>GIIAS<br /><em>2027</em></> : journey.title}</h1>

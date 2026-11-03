@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { logoutAdmin, updateOrderStatus, updateProduct } from "@/app/admin/actions";
+import LoadingScreen from "@/components/loading-screen";
 import { getProducts } from "@/lib/products";
 import { prisma } from "@/lib/prisma";
 import { formatPrice, type ProductStatus } from "@/lib/merchandise";
@@ -34,7 +35,7 @@ const orderStatuses = ["Awaiting Payment", "Paid", "Preparing", "Shipped", "Comp
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={<main className="admin-page" aria-busy="true">Loading admin dashboard…</main>}>
+    <Suspense fallback={<LoadingScreen label="Loading admin dashboard..." />}>
       <AdminDashboard />
     </Suspense>
   );
@@ -47,7 +48,7 @@ async function AdminDashboard() {
     return (
       <main className="admin-page">
         <section className="admin-shell">
-          <Link className="admin-back-link" href="/">← Kembali ke Anargya</Link>
+          <Link className="admin-back-link" href="/"><span className="direction-mark" aria-hidden="true">&lt;</span>Kembali ke Anargya</Link>
           <p className="eyebrow">ANARGYA · STORE MANAGEMENT</p>
           <h1>Admin setup diperlukan</h1>
           <p className="admin-muted">
@@ -108,7 +109,7 @@ async function AdminDashboard() {
       <div className="admin-shell">
         <header className="admin-header">
           <div>
-            <Link className="admin-back-link" href="/">← Kembali ke Anargya</Link>
+            <Link className="admin-back-link" href="/"><span className="direction-mark" aria-hidden="true">&lt;</span>Kembali ke Anargya</Link>
             <p className="eyebrow">ANARGYA · STORE MANAGEMENT</p>
             <h1>Admin dashboard</h1>
             <p className="admin-muted">Masuk sebagai {user?.email}</p>

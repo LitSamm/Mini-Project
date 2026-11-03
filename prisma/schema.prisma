@@ -28,6 +28,7 @@ model Product {
 
 model Order {
   id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentReference String?    @unique @map("payment_reference")
   customerName    String      @map("customer_name")
   customerEmail   String      @default("") @map("customer_email")
   customerPhone   String?     @map("customer_phone")

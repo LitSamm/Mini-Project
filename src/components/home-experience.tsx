@@ -34,6 +34,17 @@ const slides = [
   },
 ];
 
+const aboutPosters = [
+  {
+    src: "/images/giias-2027-d-day.png",
+    alt: "Poster GIIAS 2027: The Machine is Here, menampilkan mobil Formula EV Anargya dengan latar gedung Jakarta",
+  },
+  {
+    src: "/images/giias-2027-bridging.png",
+    alt: "Poster Get Ready for GIIAS 2027: Show Floor, menampilkan mobil Formula EV Anargya di lintasan menuju kota",
+  },
+];
+
 const teamStatuses = {
   Upcoming: {
     heading: "GIIAS 2027",
@@ -63,6 +74,8 @@ type TeamStatus = (typeof statusNames)[number];
 
 export default function HomeExperience({ products }: HomeExperienceProps) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [activePosterIndex, setActivePosterIndex] = useState<number | null>(null);
+  const [isPosterPaused, setIsPosterPaused] = useState(false);
   const [teamStatus, setTeamStatus] = useState<TeamStatus>("Upcoming");
   const heroRef = useRef<HTMLElement>(null);
   const slide = slides[activeSlide];
@@ -132,7 +145,9 @@ export default function HomeExperience({ products }: HomeExperienceProps) {
                 aria-label="Previous slide"
                 onClick={() => moveSlide(-1)}
               >
-                ←
+                <svg aria-hidden="true" viewBox="0 0 16 16" fill="none">
+                  <path d="m10 3-5 5 5 5" />
+                </svg>
               </button>
               <button
                 type="button"
@@ -140,7 +155,9 @@ export default function HomeExperience({ products }: HomeExperienceProps) {
                 aria-label="Next slide"
                 onClick={() => moveSlide(1)}
               >
-                →
+                <svg aria-hidden="true" viewBox="0 0 16 16" fill="none">
+                  <path d="m6 3 5 5-5 5" />
+                </svg>
               </button>
             </div>
           </div>
@@ -148,13 +165,59 @@ export default function HomeExperience({ products }: HomeExperienceProps) {
         </section>
 
         <section className="about-section section-shell" id="about">
-          <Reveal className="about-image-wrap about-event-poster">
-            <Image
-              src="/images/giias-2027-poster.png"
-              alt="Poster GIIAS 2027: The Machine is Here, menampilkan mobil Formula EV Anargya dengan latar gedung Jakarta"
-              fill
-              sizes="(max-width: 760px) 88vw, 40vw"
-            />
+          <Reveal
+            className={`about-image-wrap about-event-poster${activePosterIndex !== null ? " is-manual" : ""}${isPosterPaused ? " is-paused" : ""}`}
+            aria-roledescription="carousel"
+            aria-label="Poster GIIAS 2027"
+          >
+            {aboutPosters.map((poster, index) => (
+              <Image
+                key={poster.src}
+                className={`about-poster-slide${index === activePosterIndex ? " is-active" : ""}`}
+                src={poster.src}
+                alt={poster.alt}
+                aria-hidden={activePosterIndex !== null && index !== activePosterIndex}
+                fill
+                sizes="(max-width: 760px) 88vw, 40vw"
+              />
+            ))}
+            <div className="about-poster-controls" role="group" aria-label="Pilih poster">
+              {aboutPosters.map((poster, index) => (
+                <button
+                  key={poster.src}
+                  type="button"
+                  className={`about-poster-dot${index === activePosterIndex ? " is-active" : ""}`}
+                  aria-label={index === activePosterIndex ? "Lanjutkan rotasi poster otomatis" : `Tampilkan poster ${index + 1}`}
+                  aria-pressed={index === activePosterIndex}
+                  onClick={() => {
+                    if (index === activePosterIndex) {
+                      setActivePosterIndex(null);
+                      setIsPosterPaused(false);
+                      return;
+                    }
+
+                    setActivePosterIndex(index);
+                    setIsPosterPaused(true);
+                  }}
+                />
+              ))}
+              <button
+                type="button"
+                className="about-poster-playback"
+                aria-label={isPosterPaused ? "Putar rotasi poster" : "Jeda rotasi poster"}
+                aria-pressed={isPosterPaused}
+                onClick={() => {
+                  if (isPosterPaused) {
+                    setActivePosterIndex(null);
+                    setIsPosterPaused(false);
+                  } else {
+                    setIsPosterPaused(true);
+                  }
+                }}
+              >
+                {isPosterPaused ? "▶" : "Ⅱ"}
+              </button>
+            </div>
           </Reveal>
           <Reveal className="about-copy">
             <p className="eyebrow">ANARGYA ITS · RESEARCH TEAM</p>
@@ -352,7 +415,7 @@ export default function HomeExperience({ products }: HomeExperienceProps) {
                   <div className="journey-copy">
                     <p className="eyebrow">{journey.eyebrow}</p>
                     <h3>{journey.slug === "giias-2027" ? "GIIAS 2027" : journey.title}</h3>
-                    <span>Explore the journey <span aria-hidden="true">→</span></span>
+                    <span>Explore the journey <span className="direction-mark" aria-hidden="true">&gt;</span></span>
                   </div>
                 </Link>
               </Reveal>
